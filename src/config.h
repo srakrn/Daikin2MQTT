@@ -63,6 +63,7 @@ const PROGMEM char* HA_beep = "mdi:volume-high";
 const PROGMEM char* HA_counter = "mdi:counter";
 const PROGMEM char* HA_alert = "mdi:alert-circle";
 const PROGMEM char* HA_powerful = "mdi:wind-power";
+const PROGMEM char* HA_eco = "mdi:leaf";
 const PROGMEM char* HA_remote_off = "mdi:remote-off";
 
 
@@ -100,6 +101,7 @@ String ha_select_vane_horizontal_config_topic;
 String ha_switch_unit_led_config_topic;
 String ha_switch_unit_beep_config_topic;
 String ha_switch_powerful_config_topic;
+String ha_switch_eco_config_topic;
 String ha_switch_remote_enable_config_topic;
 
 String ha_discovery_topic;
@@ -109,6 +111,7 @@ String ha_availability_topic;
 String ha_switch_unit_led_set_topic;
 String ha_switch_unit_beep_set_topic;
 String ha_switch_powerful_set_topic;
+String ha_switch_eco_set_topic;
 String ha_switch_remote_enable_set_topic;
 String hvac_name;
 

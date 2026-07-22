@@ -53,6 +53,9 @@ const char *HORIZONTALVANE_MAP[2] = {"HOLD", "SWING"};
 const byte S21_POWERFUL[2] = {0x00, 0x02};
 const char *S21_POWERFUL_MAP[2] = {"OFF", "ON"};
 
+const byte S21_ECO[2] = {0x00, 0x02};
+const char *S21_ECO_MAP[2] = {"OFF", "ON"};
+
 int16_t bytes_to_num(uint8_t *bytes, size_t len)
 {
   // <ones><tens><hundreds><neg/pos>
@@ -336,8 +339,14 @@ bool DaikinController::parseResponse(ACResponse *response)
         newSettings = currentSettings; // we need current AC setting for future control.
         return true;
       
-      case '6':
-        this->currentSettings.powerful = (payload[0] == '0')? S21_POWERFUL_MAP[0]: S21_POWERFUL_MAP[1];
+      case '6': // F6 -> G6 -- Powerful (and comfort/quiet/streamer/sensor/led)
+        this->currentSettings.powerful = (payload[0] & 0x02) ? S21_POWERFUL_MAP[1] : S21_POWERFUL_MAP[0];
+        newSettings.powerful = currentSettings.powerful; // we need current AC setting for future control.
+        return true;
+
+      case '7': // F7 -> G7 -- Demand and Eco mode
+        this->currentSettings.econo = (payload[1] & 0x02) ? S21_ECO_MAP[1] : S21_ECO_MAP[0];
+        newSettings.econo = currentSettings.econo; // we need current AC setting for future control.
         return true;
 
 
@@ -566,6 +575,7 @@ bool DaikinController::readState()
   Log.ln(TAG, "\tEnergy Meter: " + String(this->currentStatus.energyMeter) + " kWh");
   Log.ln(TAG, "\tError Code: " + this->currentStatus.errorCode );
   Log.ln(TAG, "\tPowerful Cool: " + String(this->currentSettings.powerful) );
+  Log.ln(TAG, "\tEco: " + String(this->currentSettings.econo) );
 
   Log.ln(TAG, "******************************************\n");
 
@@ -650,6 +660,14 @@ bool DaikinController::update(bool updateAll)
       payload[2] = '0';
       payload[3] = '0';
       res = daikinUART->sendCommandS21('D', '6', payload, 4) & res;
+
+      // Command D7 -- Demand & Eco mode
+      // payload[0]: demand (0x30 = no demand limit), payload[1]: bit 0x02 = eco mode
+      payload[0] = '0';
+      payload[1] = '0' + S21_ECO[lookupByteMapIndex(S21_ECO_MAP, 2, newSettings.econo)];
+      payload[2] = '0';
+      payload[3] = '0';
+      res = daikinUART->sendCommandS21('D', '7', payload, 4) & res;
 
       // Does not work on FTKQ/FTKC Either
       // payload[0] = '0'+ S21_POWERFUL[lookupByteMapIndex(S21_POWERFUL_MAP, 2, newSettings.powerful)];    //Timer stuff
@@ -970,6 +988,26 @@ void DaikinController::setPowerfulSetting(const char *setting){
     else
     {
       newSettings.powerful = S21_POWERFUL_MAP[0];
+    }
+    pendingSettings.specialMode = true;
+  }
+}
+
+const char *DaikinController::getEcoSetting(){
+  return currentSettings.econo;
+}
+
+void DaikinController::setEcoSetting(const char *setting){
+  if (daikinUART->currentProtocol()== PROTOCOL_S21)
+  {
+    int index = lookupByteMapIndex(S21_ECO_MAP, 2, setting);
+    if (index > -1)
+    {
+      newSettings.econo = S21_ECO_MAP[index];
+    }
+    else
+    {
+      newSettings.econo = S21_ECO_MAP[0];
     }
     pendingSettings.specialMode = true;
   }

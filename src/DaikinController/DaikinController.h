@@ -68,7 +68,8 @@ struct HVACSettings
   const char *fan;
   const char *verticalVane;   // vertical vane, up/down
   const char *horizontalVane; // horizontal vane, left/right
-  const char *powerful; 
+  const char *powerful;
+  const char *econo;   // Eco mode
   bool remoteEnable;
   // bool connected;
 };
@@ -125,6 +126,8 @@ public:
   void setHorizontalVaneSetting(const char *setting);
   const char *getPowerfulSetting();
   void setPowerfulSetting(const char *setting);
+  const char *getEcoSetting();
+  void setEcoSetting(const char *setting);
   void setEnableRemote(bool enable);
   String getModelName();
 
@@ -158,8 +161,8 @@ private:
   HardwareSerial *_serial{nullptr};
 
   HVACStatus currentStatus{0, 0, 0, 0, 0, 0};
-  HVACSettings currentSettings{"OFF", "COOL", 25.0, "AUTO", "HOLD", "HOLD", "OFF",true};
-  HVACSettings newSettings{"OFF", "COOL", 25.0, "AUTO", "HOLD", "HOLD","OFF", true}; // Mock data
+  HVACSettings currentSettings{"OFF", "COOL", 25.0, "AUTO", "HOLD", "HOLD", "OFF", "OFF", true};
+  HVACSettings newSettings{"OFF", "COOL", 25.0, "AUTO", "HOLD", "HOLD", "OFF", "OFF", true}; // Mock data
 
   // Temporary setting value.
   PendingSettings pendingSettings = {false, false, false};

@@ -1645,6 +1645,7 @@ void readHeatPumpSettings()
   rootInfo["wideVane"] = currentSettings.horizontalVane;
   rootInfo["mode"] = hpGetMode(currentSettings);
   rootInfo["powerful"] = currentSettings.powerful;
+  rootInfo["econo"] = currentSettings.econo;
 }
 
 void hpSettingsChanged()
@@ -1742,6 +1743,7 @@ void hpStatusChanged(HVACStatus currentStatus)
     rootInfo["compressorFrequency"] = currentStatus.compressorFrequency;
     rootInfo["errorCode"] = currentStatus.errorCode;
     rootInfo["powerful"] = currentSettings.powerful;
+    rootInfo["econo"] = currentSettings.econo;
 
     if (ac.daikinUART->currentProtocol() == PROTOCOL_S21 && currentStatus.energyMeter != 0.0){
       // rootInfo["energyMeter"] = currentStatus.energyMeter;
@@ -2088,6 +2090,23 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     else if (modeUpper == "ON")
     {
       ac.setPowerfulSetting("ON");
+      playBeep(SET);
+      ac.update();
+    }
+  }
+  else if (strcmp(topic, ha_switch_eco_set_topic.c_str()) == 0)
+  {
+    String modeUpper = message;
+    modeUpper.toUpperCase();
+    if (modeUpper == "OFF")
+    {
+      ac.setEcoSetting("OFF");
+      playBeep(SET);
+      ac.update();
+    }
+    else if (modeUpper == "ON")
+    {
+      ac.setEcoSetting("ON");
       playBeep(SET);
       ac.update();
     }
@@ -2439,6 +2458,25 @@ void haConfig()
     mqtt_client.endPublish();
   }
 
+  // Eco Mode Switch Config
+  if (ac.daikinUART->currentProtocol() == PROTOCOL_S21){
+    const size_t capacityEcoSwitchConfig = JSON_OBJECT_SIZE(7) + JSON_OBJECT_SIZE(8) + 2048;
+    DynamicJsonDocument haEcoSwitchConfig(capacityEcoSwitchConfig);
+    haEcoSwitchConfig["name"] = "Eco Mode";
+    haEcoSwitchConfig["unique_id"] = getId() + "_eco";
+    haEcoSwitchConfig["icon"] = HA_eco;
+    haEcoSwitchConfig["command_topic"] = ha_switch_eco_set_topic;
+    haEcoSwitchConfig["state_topic"] = ha_state_topic;
+    haEcoSwitchConfig["value_template"] = F("{{ value_json.econo if (value_json is defined and value_json.econo is defined and value_json.econo|length) else 'OFF' }}");
+
+    addMQTTDeviceInfo(&haEcoSwitchConfig);
+    mqttOutput.clear();
+    serializeJson(haEcoSwitchConfig, mqttOutput);
+    mqtt_client.beginPublish(ha_switch_eco_config_topic.c_str(), mqttOutput.length(), true);
+    mqtt_client.print(mqttOutput);
+    mqtt_client.endPublish();
+  }
+
   // Disable / Enable remote switch (ON, OFF button since we can't find the way to check current state)
   if (ac.daikinUART->currentProtocol() == PROTOCOL_S21){
     const size_t capacityRemoteEnableSwitchConfig = JSON_OBJECT_SIZE(7) + JSON_OBJECT_SIZE(8) + 2048;
@@ -2506,6 +2544,7 @@ void mqttConnect()
       mqtt_client.subscribe(ha_switch_unit_led_set_topic.c_str());
       mqtt_client.subscribe(ha_switch_unit_beep_set_topic.c_str());
       mqtt_client.subscribe(ha_switch_powerful_set_topic.c_str());
+      mqtt_client.subscribe(ha_switch_eco_set_topic.c_str());
       mqtt_client.subscribe(ha_switch_remote_enable_set_topic.c_str());
       mqtt_client.publish(ha_availability_topic.c_str(), !_debugMode ? mqtt_payload_available : mqtt_payload_unavailable, true); // publish status as available
       if (others_haa)
@@ -2909,6 +2948,7 @@ void setup()
       ha_switch_unit_led_set_topic = mqtt_topic + "/" + mqtt_fn + "/led/set";
       ha_switch_unit_beep_set_topic = mqtt_topic + "/" + mqtt_fn + "/beep/set";
       ha_switch_powerful_set_topic = mqtt_topic + "/" + mqtt_fn + "/powerful/set";
+      ha_switch_eco_set_topic = mqtt_topic + "/" + mqtt_fn + "/econo/set";
       ha_switch_remote_enable_set_topic =  mqtt_topic + "/" + mqtt_fn + "/remote_enable/set";
 
       if (others_haa)
@@ -2926,6 +2966,7 @@ void setup()
         ha_switch_unit_led_config_topic = others_haa_topic + "/switch/" + mqtt_fn + "/led/config";
         ha_switch_unit_beep_config_topic = others_haa_topic + "/switch/" + mqtt_fn + "/beep/config";
         ha_switch_powerful_config_topic = others_haa_topic + "/switch/" + mqtt_fn + "/powerful/config";
+        ha_switch_eco_config_topic = others_haa_topic + "/switch/" + mqtt_fn + "/eco/config";
         ha_switch_remote_enable_config_topic = others_haa_topic + "/switch/" + mqtt_fn + "/remote_enable/config";
       }
       // startup mqtt connection
@@ -2956,6 +2997,7 @@ void setup()
     rootInfo["compressorFrequency"] = currentStatus.compressorFrequency;
     rootInfo["errorCode"] = currentStatus.errorCode;
     rootInfo["powerful"] = currentSettings.powerful;
+    rootInfo["econo"] = currentSettings.econo;
     lastTempSend = millis();
   }
   else
