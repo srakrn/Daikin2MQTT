@@ -17,7 +17,7 @@
 */
 
 
-const PROGMEM char* dk2mqtt_version = "1.3-b4";
+const PROGMEM char* dk2mqtt_version = "1.3a-srakrn";
 
 //Define global variables for files
 const PROGMEM char* wifi_conf = "/wifi.json";
