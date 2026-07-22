@@ -1161,6 +1161,8 @@ void handleControl()
   controlPage.replace("_TXT_CTRL_FAN_", FPSTR(txt_ctrl_fan));
   controlPage.replace("_TXT_CTRL_VANE_", FPSTR(txt_ctrl_vane));
   controlPage.replace("_TXT_CTRL_WVANE_", FPSTR(txt_ctrl_wvane));
+  controlPage.replace("_TXT_CTRL_POWERFUL_", FPSTR(txt_ctrl_powerful));
+  controlPage.replace("_TXT_CTRL_ECO_", FPSTR(txt_ctrl_eco));
   controlPage.replace("_TXT_F_ON_", FPSTR(txt_f_on));
   controlPage.replace("_TXT_F_OFF_", FPSTR(txt_f_off));
   controlPage.replace("_TXT_F_AUTO_", FPSTR(txt_f_auto));
@@ -1251,6 +1253,24 @@ void handleControl()
   else if (strcmp(settings.horizontalVane, "SWING") == 0)
   {
     controlPage.replace("_WVANE_S_", "selected");
+  }
+
+  if (strcmp(settings.powerful, "ON") == 0)
+  {
+    controlPage.replace("_POWERFUL_ON_", "selected");
+  }
+  else
+  {
+    controlPage.replace("_POWERFUL_OFF_", "selected");
+  }
+
+  if (strcmp(settings.econo, "ON") == 0)
+  {
+    controlPage.replace("_ECO_ON_", "selected");
+  }
+  else
+  {
+    controlPage.replace("_ECO_OFF_", "selected");
   }
 
   controlPage.replace("_TEMP_", String(convertCelsiusToLocalUnit(ac.getTemperature(), useFahrenheit)));
@@ -1618,6 +1638,18 @@ HVACSettings change_states(HVACSettings settings)
     if (server.hasArg("WIDEVANE"))
     {
       settings.horizontalVane = strdup(server.arg("WIDEVANE").c_str());
+      update = true;
+    }
+    if (server.hasArg("POWERFUL"))
+    {
+      settings.powerful = strdup(server.arg("POWERFUL").c_str());
+      ac.setPowerfulSetting(settings.powerful);
+      update = true;
+    }
+    if (server.hasArg("ECO"))
+    {
+      settings.econo = strdup(server.arg("ECO").c_str());
+      ac.setEcoSetting(settings.econo);
       update = true;
     }
     if (update)
