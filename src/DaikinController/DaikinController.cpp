@@ -56,6 +56,9 @@ const char *S21_POWERFUL_MAP[2] = {"OFF", "ON"};
 const byte S21_ECO[2] = {0x00, 0x02};
 const char *S21_ECO_MAP[2] = {"OFF", "ON"};
 
+const byte S21_QUIET[2] = {0x00, 0x80};
+const char *S21_QUIET_MAP[2] = {"OFF", "ON"};
+
 int16_t bytes_to_num(uint8_t *bytes, size_t len)
 {
   // <ones><tens><hundreds><neg/pos>
@@ -366,9 +369,11 @@ bool DaikinController::parseResponse(ACResponse *response)
         newSettings = currentSettings; // we need current AC setting for future control.
         return true;
       
-      case '6': // F6 -> G6 -- Powerful (and comfort/quiet/streamer/sensor/led)
+      case '6': // F6 -> G6 -- Powerful and Quiet (byte0), plus comfort/streamer/sensor/led
         this->currentSettings.powerful = (payload[0] & 0x02) ? S21_POWERFUL_MAP[1] : S21_POWERFUL_MAP[0];
+        this->currentSettings.quiet = (payload[0] & 0x80) ? S21_QUIET_MAP[1] : S21_QUIET_MAP[0];
         newSettings.powerful = currentSettings.powerful; // we need current AC setting for future control.
+        newSettings.quiet = currentSettings.quiet;
         return true;
 
       case '7': // F7 -> G7 -- Demand and Eco mode
@@ -603,6 +608,7 @@ bool DaikinController::readState()
   Log.ln(TAG, "\tError Code: " + this->currentStatus.errorCode );
   Log.ln(TAG, "\tPowerful Cool: " + String(this->currentSettings.powerful) );
   Log.ln(TAG, "\tEco: " + String(this->currentSettings.econo) );
+  Log.ln(TAG, "\tQuiet: " + String(this->currentSettings.quiet) );
 
   Log.ln(TAG, "******************************************\n");
 
@@ -681,13 +687,14 @@ bool DaikinController::update(bool updateAll)
     
     if (pendingSettings.specialMode || updateAll)
     {
-      byte powerfulByte = '0' + S21_POWERFUL[lookupByteMapIndex(S21_POWERFUL_MAP, 2, newSettings.powerful)];
+      byte powerfulBit = S21_POWERFUL[lookupByteMapIndex(S21_POWERFUL_MAP, 2, newSettings.powerful)]; // 0x00 / 0x02
+      byte quietBit = S21_QUIET[lookupByteMapIndex(S21_QUIET_MAP, 2, newSettings.quiet)];             // 0x00 / 0x80
 
       if (!s21F6Bad)
       {
-        // Command D6 -- powerful flag lives in payload[0] (bit 0x02).
+        // Command D6 -- byte0 holds Powerful (bit 0x02) and Quiet (bit 0x80).
         // Units that NAK this (e.g. FTKQ/FTKC) trip the F3/D3 fallback below.
-        payload[0] = powerfulByte;
+        payload[0] = '0' + powerfulBit + quietBit;
         payload[1] = '0';
         payload[2] = '0';
         payload[3] = '0';
@@ -697,10 +704,11 @@ bool DaikinController::update(bool updateAll)
       {
         // Command D3 fallback -- powerful flag lives ONLY in payload[3] (bit 0x02),
         // all other bytes '0'. (The previous all-bytes layout was wrong and never worked.)
+        // Quiet is unavailable on this path (it only exists in the G6/D6 family).
         payload[0] = '0';
         payload[1] = '0';
         payload[2] = '0';
-        payload[3] = powerfulByte;
+        payload[3] = '0' + powerfulBit;
         res = daikinUART->sendCommandS21('D', '3', payload, 4) & res;
       }
 
@@ -1044,6 +1052,26 @@ void DaikinController::setEcoSetting(const char *setting){
     else
     {
       newSettings.econo = S21_ECO_MAP[0];
+    }
+    pendingSettings.specialMode = true;
+  }
+}
+
+const char *DaikinController::getQuietSetting(){
+  return currentSettings.quiet;
+}
+
+void DaikinController::setQuietSetting(const char *setting){
+  if (daikinUART->currentProtocol()== PROTOCOL_S21)
+  {
+    int index = lookupByteMapIndex(S21_QUIET_MAP, 2, setting);
+    if (index > -1)
+    {
+      newSettings.quiet = S21_QUIET_MAP[index];
+    }
+    else
+    {
+      newSettings.quiet = S21_QUIET_MAP[0];
     }
     pendingSettings.specialMode = true;
   }
