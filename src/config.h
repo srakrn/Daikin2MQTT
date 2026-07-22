@@ -62,9 +62,9 @@ const PROGMEM char* HA_led = "mdi:wall-sconce-flat-variant";
 const PROGMEM char* HA_beep = "mdi:volume-high";
 const PROGMEM char* HA_counter = "mdi:counter";
 const PROGMEM char* HA_alert = "mdi:alert-circle";
-const PROGMEM char* HA_powerful = "mdi:wind-power";
-const PROGMEM char* HA_eco = "mdi:leaf";
-const PROGMEM char* HA_quiet = "mdi:volume-mute";
+const PROGMEM char* HA_powerful = "mdi:arm-flex";
+const PROGMEM char* HA_eco = "mdi:chart-sankey-variant";
+const PROGMEM char* HA_quiet = "mdi:volume-minus";
 const PROGMEM char* HA_remote_off = "mdi:remote-off";
 
 
