@@ -181,14 +181,33 @@ bool DaikinController::sync()
 
     for (int i = 0; i < size; i++)
     {
+      const String &cmd = S21queryCmds[i];
 
-      Log.ln(TAG, String("Send command: " + S21queryCmds[i]));
+      // Powerful mode autodetection (mirror Faikin): poll F6 by default and only
+      // use F3 as a fallback once F6 has proven unsupported on this unit.
+      if (cmd == "F6" && s21F6Bad)
+        continue;
+      if (cmd == "F3" && !s21F6Bad)
+        continue;
 
-      res = daikinUART->sendCommandS21(S21queryCmds[i][0], S21queryCmds[i][1]);
+      Log.ln(TAG, String("Send command: " + cmd));
+
+      res = daikinUART->sendCommandS21(cmd[0], cmd[1]);
       if (res)
       {
+        if (cmd == "F6")
+          s21F6NakCount = 0;
         ACResponse response = daikinUART->getResponse();
         parseResponse(&response);
+      }
+      else if (cmd == "F6" && !s21F6Bad)
+      {
+        // Give up on F6 after repeated failures and switch to the F3/D3 path.
+        if (++s21F6NakCount >= 7)
+        {
+          s21F6Bad = true;
+          Log.ln(TAG, "F6 unsupported on this unit; using F3/D3 for powerful mode");
+        }
       }
       // ("Result: %s\n\n", res ? "Success" : "Failed");
       success = success | res;
@@ -318,6 +337,14 @@ bool DaikinController::parseResponse(ACResponse *response)
           this->currentSettings.temperature = 25;
         }
         newSettings = currentSettings; // we need current AC setting for future control.
+        return true;
+
+      case '3': // F3 -> G3 -- Alternative "powerful" flag (used when F6 is unsupported)
+        if (payloadSize >= 4)
+        {
+          this->currentSettings.powerful = (payload[3] & 0x02) ? S21_POWERFUL_MAP[1] : S21_POWERFUL_MAP[0];
+          newSettings.powerful = currentSettings.powerful; // we need current AC setting for future control.
+        }
         return true;
 
       case '4': // F4 -> G4 -- Error code
@@ -652,14 +679,30 @@ bool DaikinController::update(bool updateAll)
       pendingSettings.vane = false;
     }
     
-    if (pendingSettings.specialMode || updateAll)   
+    if (pendingSettings.specialMode || updateAll)
     {
-      // D6 not working with FTKQ/FTKC, response NAK
-      payload[0] = '0' + S21_POWERFUL[lookupByteMapIndex(S21_POWERFUL_MAP, 2, newSettings.powerful)];
-      payload[1] = '0';
-      payload[2] = '0';
-      payload[3] = '0';
-      res = daikinUART->sendCommandS21('D', '6', payload, 4) & res;
+      byte powerfulByte = '0' + S21_POWERFUL[lookupByteMapIndex(S21_POWERFUL_MAP, 2, newSettings.powerful)];
+
+      if (!s21F6Bad)
+      {
+        // Command D6 -- powerful flag lives in payload[0] (bit 0x02).
+        // Units that NAK this (e.g. FTKQ/FTKC) trip the F3/D3 fallback below.
+        payload[0] = powerfulByte;
+        payload[1] = '0';
+        payload[2] = '0';
+        payload[3] = '0';
+        res = daikinUART->sendCommandS21('D', '6', payload, 4) & res;
+      }
+      else
+      {
+        // Command D3 fallback -- powerful flag lives ONLY in payload[3] (bit 0x02),
+        // all other bytes '0'. (The previous all-bytes layout was wrong and never worked.)
+        payload[0] = '0';
+        payload[1] = '0';
+        payload[2] = '0';
+        payload[3] = powerfulByte;
+        res = daikinUART->sendCommandS21('D', '3', payload, 4) & res;
+      }
 
       // Command D7 -- Demand & Eco mode
       // payload[0]: demand (0x30 = no demand limit), payload[1]: bit 0x02 = eco mode
@@ -668,13 +711,6 @@ bool DaikinController::update(bool updateAll)
       payload[2] = '0';
       payload[3] = '0';
       res = daikinUART->sendCommandS21('D', '7', payload, 4) & res;
-
-      // Does not work on FTKQ/FTKC Either
-      // payload[0] = '0'+ S21_POWERFUL[lookupByteMapIndex(S21_POWERFUL_MAP, 2, newSettings.powerful)];    //Timer stuff
-      // payload[1] = '0'+ S21_POWERFUL[lookupByteMapIndex(S21_POWERFUL_MAP, 2, newSettings.powerful)];
-      // payload[2] = '0'+ S21_POWERFUL[lookupByteMapIndex(S21_POWERFUL_MAP, 2, newSettings.powerful)];
-      // payload[3] = '0' + S21_POWERFUL[lookupByteMapIndex(S21_POWERFUL_MAP, 2, newSettings.powerful)];
-      // res = daikinUART->sendCommandS21('D', '3', payload, 4) & res;
 
       pendingSettings.specialMode = false;
 
