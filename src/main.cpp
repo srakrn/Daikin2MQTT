@@ -2529,7 +2529,7 @@ void haConfig()
   if (ac.daikinUART->currentProtocol() == PROTOCOL_S21){
     const size_t capacityEcoSwitchConfig = JSON_OBJECT_SIZE(7) + JSON_OBJECT_SIZE(8) + 2048;
     DynamicJsonDocument haEcoSwitchConfig(capacityEcoSwitchConfig);
-    haEcoSwitchConfig["name"] = "Eco Mode";
+    haEcoSwitchConfig["name"] = "Econo Mode";
     haEcoSwitchConfig["unique_id"] = getId() + "_eco";
     haEcoSwitchConfig["icon"] = HA_eco;
     haEcoSwitchConfig["command_topic"] = ha_switch_eco_set_topic;
